@@ -7,6 +7,10 @@ import (
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
+	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"io/ioutil"
 	"os"
@@ -72,6 +76,7 @@ type Image struct {
 	Trans  string `xml:"trans,attr"`
 	Width  int    `xml:"width,attr"`
 	Height int    `xml:"height,attr"`
+	Image  image.Image
 }
 
 type Tile struct {
@@ -235,6 +240,20 @@ func (l *Layer) decode() ([]GID, error) {
 	return nil, fmt.Errorf("unsupported encoding: %s", l.Data.Encoding)
 }
 
+func (i *Image) decode(baseDir string) error {
+	file, err := os.Open(filepath.Join(baseDir, i.Source))
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	i.Image, _, err = image.Decode(file)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (ts *TileSet) decode(baseDir string) error {
 	if ts.Source == "" {
 		return nil
@@ -249,6 +268,9 @@ func (ts *TileSet) decode(baseDir string) error {
 	if err := decoder.Decode(ts); err != nil {
 		return err
 	}
+	if err := ts.Image.decode(baseDir); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -261,7 +283,7 @@ func (m *Map) decodeGID(gid GID) (*TileInfo, error) {
 	for i := len(m.TileSets) - 1; i >= 0; i-- {
 		if m.TileSets[i].FirstGID <= clearGID {
 			return &TileInfo{
-				ID:             GID(clearGID - m.TileSets[i].FirstGID),
+				ID:             clearGID - m.TileSets[i].FirstGID,
 				TileSet:        &m.TileSets[i],
 				HorizontalFlip: gid&horizontalFlip != 0,
 				VerticalFlip:   gid&verticalFlip != 0,
