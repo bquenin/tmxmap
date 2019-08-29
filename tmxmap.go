@@ -268,9 +268,6 @@ func (ts *TileSet) decode(baseDir string) error {
 	if err := decoder.Decode(ts); err != nil {
 		return err
 	}
-	if err := ts.Image.decode(baseDir); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -299,6 +296,9 @@ func (m *Map) decodeGID(gid GID) (*TileInfo, error) {
 func (m *Map) decode(baseDir string) error {
 	for i := range m.TileSets {
 		if err := m.TileSets[i].decode(baseDir); err != nil {
+			return err
+		}
+		if err := m.TileSets[i].Image.decode(baseDir); err != nil {
 			return err
 		}
 	}
