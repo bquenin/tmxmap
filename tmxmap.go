@@ -65,7 +65,7 @@ type TileSet struct {
 	Spacing    int        `xml:"spacing,attr"`
 	Margin     int        `xml:"margin,attr"`
 	Properties []Property `xml:"properties>property"`
-	Image      Image      `xml:"image"`
+	Image      *Image      `xml:"image"`
 	Tiles      []Tile     `xml:"tile"`
 	Tilecount  int        `xml:"tilecount,attr"`
 	Columns    int        `xml:"columns,attr"`
@@ -302,21 +302,6 @@ func (m *Map) decode(baseDir string) error {
 			return err
 		}
 	}
-	for i := range m.Layers {
-		layer := &m.Layers[i]
-		gids, err := layer.decode()
-		if err != nil {
-			return err
-		}
-
-		layer.Tiles = make([]*TileInfo, len(gids))
-		for j := 0; j < len(layer.Tiles); j++ {
-			layer.Tiles[j], err = m.decodeGID(gids[j])
-			if err != nil {
-				return err
-			}
-		}
-	}
 	return nil
 }
 
@@ -328,18 +313,44 @@ func Load(name string) (*Map, error) {
 	}
 	defer file.Close()
 
-	baseDir, err := filepath.Abs(filepath.Dir(name))
+	tmx, err := Decode(file)
 	if err != nil {
 		return nil, err
 	}
 
-	tmx := &Map{}
-	decoder := xml.NewDecoder(file)
-	if err := decoder.Decode(tmx); err != nil {
+	baseDir, err := filepath.Abs(filepath.Dir(name))
+	if err != nil {
 		return nil, err
 	}
 	if err := tmx.decode(baseDir); err != nil {
 		return nil, err
 	}
+	return tmx, nil
+}
+
+// Load
+func Decode(tileMap io.Reader) (*Map, error) {
+	tmx := &Map{}
+	decoder := xml.NewDecoder(tileMap)
+	if err := decoder.Decode(tmx); err != nil {
+		return nil, err
+	}
+
+	for i := range tmx.Layers {
+		layer := &tmx.Layers[i]
+		gids, err := layer.decode()
+		if err != nil {
+			return nil, err
+		}
+
+		layer.Tiles = make([]*TileInfo, len(gids))
+		for j := 0; j < len(layer.Tiles); j++ {
+			layer.Tiles[j], err = tmx.decodeGID(gids[j])
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	return tmx, nil
 }
